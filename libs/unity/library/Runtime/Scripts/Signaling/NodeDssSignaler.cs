@@ -198,7 +198,7 @@ namespace Microsoft.MixedReality.WebRTC.Unity
             // to the bool value.
             // https://stackoverflow.com/questions/11969208/non-generic-taskcompletionsource-or-alternative
             var tcs = new TaskCompletionSource<bool>();
-            _mainThreadWorkQueue.Enqueue(() => StartCoroutine(PostToServerAndWait(message, tcs)));
+            InvokeOnAppThread(() => StartCoroutine(PostToServerAndWait(message, tcs)));
             return tcs.Task;
         }
 

@@ -18,7 +18,7 @@ namespace Microsoft.MixedReality.WebRTC.Unity
     /// <see cref="SendMessageAsync(SdpMessage)"/> and <see cref="SendMessageAsync(IceCandidate)"/> to
     /// implement, as well as handling received messages.
     /// </summary>
-    public abstract class Signaler : MonoBehaviour
+    public abstract class Signaler : WorkQueue
     {
         /// <summary>
         /// The <see cref="PeerConnection"/> this signaler needs to work for.
@@ -58,12 +58,6 @@ namespace Microsoft.MixedReality.WebRTC.Unity
         protected WebRTC.PeerConnection _nativePeer = null;
 
         /// <summary>
-        /// Task queue used to defer actions to the main Unity app thread, which is the only thread
-        /// with access to Unity objects.
-        /// </summary>
-        protected ConcurrentQueue<Action> _mainThreadWorkQueue = new ConcurrentQueue<Action>();
-
-        /// <summary>
         /// Callback fired from the <see cref="PeerConnection"/> when it finished
         /// initializing, to subscribe to signaling-related events.
         /// </summary>
@@ -91,7 +85,7 @@ namespace Microsoft.MixedReality.WebRTC.Unity
 
         private void OnIceCandidateReadyToSend_Listener(IceCandidate candidate)
         {
-            _mainThreadWorkQueue.Enqueue(() => OnIceCandidateReadyToSend(candidate));
+            InvokeOnAppThread(() => OnIceCandidateReadyToSend(candidate));
         }
 
         /// <summary>
@@ -102,11 +96,11 @@ namespace Microsoft.MixedReality.WebRTC.Unity
         {
             if (message.Type == SdpMessageType.Offer)
             {
-                _mainThreadWorkQueue.Enqueue(() => OnSdpOfferReadyToSend(message));
+                InvokeOnAppThread(() => OnSdpOfferReadyToSend(message));
             }
             else if (message.Type == SdpMessageType.Answer)
             {
-                _mainThreadWorkQueue.Enqueue(() => OnSdpAnswerReadyToSend(message));
+                InvokeOnAppThread(() => OnSdpAnswerReadyToSend(message));
             }
         }
 
@@ -114,21 +108,6 @@ namespace Microsoft.MixedReality.WebRTC.Unity
         {
             PeerConnection.OnInitialized.AddListener(OnPeerInitialized);
             PeerConnection.OnShutdown.AddListener(OnPeerUninitializing);
-        }
-
-        /// <summary>
-        /// Unity Engine Update() hook
-        /// </summary>
-        /// <remarks>
-        /// https://docs.unity3d.com/ScriptReference/MonoBehaviour.Update.html
-        /// </remarks>
-        protected virtual void Update()
-        {
-            // Process workloads queued from background threads
-            while (_mainThreadWorkQueue.TryDequeue(out Action action))
-            {
-                action();
-            }
         }
 
         protected virtual void OnDisable()
